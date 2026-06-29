@@ -9,7 +9,13 @@ let _socket: Socket | null = null;
 
 export function getSocket(): Socket {
   if (_socket) return _socket;
-  _socket = io({
+
+  const socketUrl = typeof window !== 'undefined'
+    ? process.env.NEXT_PUBLIC_SOCKET_URL || window.location.origin
+    : undefined;
+
+  _socket = io(socketUrl, {
+    path: '/socket.io',
     autoConnect: true,
     reconnection: true,
     transports: ['websocket', 'polling'],
