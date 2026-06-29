@@ -41,7 +41,15 @@ npm start
 
 รันเซิร์ฟเวอร์ที่ port 3000 บนเครื่องคลาวด์ แล้วใช้ reverse proxy (Nginx) หรือ tunnel (เช่น cloudflared) เปิดให้เข้าผ่าน HTTPS
 
+หากต้องการ deploy บนโฮสต์จริง แนะนำใช้ Docker หรือ VM ที่รองรับ long-running Node process และ WebSocket/Socket.IO
+
+```bash
+docker build -t tree-of-hope .
+docker run -p 3000:3000 tree-of-hope
+```
+
 > หมายเหตุ: Socket.IO ต้องการ long-running Node process จึงต้องรันด้วย `npm start` บน VM/Container (ใช้บน serverless ไม่ได้)
+> บน Vercel แบบปกติจะไม่รองรับการเชื่อมต่อ Socket.IO แบบถาวร จึงเหมาะสำหรับ deployment แบบ Node server มากกว่า
 
 ## 🎮 วิธีเล่น
 
