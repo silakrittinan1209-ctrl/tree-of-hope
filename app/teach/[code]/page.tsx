@@ -55,8 +55,16 @@ function TeachInner() {
           if (!s) return s;
           const exists = s.answers.find((a: any) => a.id === d.answer.id);
           if (exists) return s;
-          // ensure the answer has a kind field matching placement
-          return { ...s, answers: [...s.answers, { id: d.answer.id, student_id: d.answer.studentId, kind: d.placement.kind, text: d.answer.text }] };
+          // create a fully typed Answer object for local snapshot updates
+          const answer = {
+            id: d.answer.id,
+            room_id: s.room.id,
+            student_id: d.answer.studentId,
+            kind: d.placement.kind,
+            text: d.answer.text,
+            created_at: new Date().toISOString(),
+          };
+          return { ...s, answers: [...s.answers, answer] };
         });
       }
     };
