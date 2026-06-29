@@ -7,11 +7,16 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
-RUN npm install --production
+# Install full dependencies for build (including devDependencies like TypeScript)
+RUN npm install
 
 COPY . ./
 
+# Build the app
 RUN npm run build
+
+# Remove devDependencies to keep image small
+RUN npm prune --production
 
 EXPOSE 3000
 ENV NODE_ENV=production
