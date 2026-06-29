@@ -15,9 +15,11 @@ export function getSocket(): Socket {
     : undefined;
 
   _socket = io(socketUrl, {
-    path: '/socket.io',
+    path: '/socket.io/',
     autoConnect: true,
     reconnection: true,
+    reconnectionAttempts: 10,
+    reconnectionDelayMax: 5000,
     transports: ['websocket', 'polling'],
   });
   return _socket;

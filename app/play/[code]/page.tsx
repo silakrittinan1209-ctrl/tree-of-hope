@@ -102,19 +102,47 @@ function PlayInner() {
   const submitAnswer = useCallback(() => {
     const text = answerText.trim();
     if (!text || sidRef.current === null) return;
-    socketRef.current?.emit('submit_answer',
-      { roomCode: code, studentId: sidRef.current, kind, text },
-      (res: any) => {
-        if (res?.ok) {
-          setMyAnswers(prev => ({ ...prev, [kind]: res.answer }));
+    // ถ้า socket พร้อม ใช้ realtime ออกแบบเดิม
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('submit_answer',
+        { roomCode: code, studentId: sidRef.current, kind, text },
+        (res: any) => {
+          if (res?.ok) {
+            setMyAnswers(prev => ({ ...prev, [kind]: res.answer }));
+            setSavedFlash(true);
+            setAnswerText('');
+            setTimeout(() => setSavedFlash(false), 2000);
+          } else {
+            setError(res?.error || 'ส่งคำตอบไม่สำเร็จ');
+            setTimeout(() => setError(''), 3000);
+          }
+        });
+      return;
+    }
+
+    // หาก socket ตัดการเชื่อมต่อ ให้ลองใช้ REST fallback
+    (async () => {
+      try {
+        const res = await fetch('/api/answers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomCode: code, studentId: sidRef.current, kind, text }),
+        });
+        const j = await res.json();
+        if (j.ok) {
+          setMyAnswers(prev => ({ ...prev, [kind]: j.answer }));
           setSavedFlash(true);
           setAnswerText('');
           setTimeout(() => setSavedFlash(false), 2000);
         } else {
-          setError(res?.error || 'ส่งคำตอบไม่สำเร็จ');
+          setError(j.error || 'ส่งคำตอบผ่าน REST ไม่สำเร็จ');
           setTimeout(() => setError(''), 3000);
         }
-      });
+      } catch (e) {
+        setError(String(e) || 'ส่งคำตอบล้มเหลว');
+        setTimeout(() => setError(''), 3000);
+      }
+    })();
   }, [answerText, code, kind]);
 
   // ---------- วางรายการ (คลิกที่ต้นไม้ตรง ๆ) ----------
@@ -130,16 +158,43 @@ function PlayInner() {
       setTimeout(() => setError(''), 2500);
       return;
     }
-    socketRef.current?.emit('place_item', {
+    const payload = {
       roomCode: code, studentId: sidRef.current, kind,
       answerId: myAnswers[kind]?.id ?? null, emoji: selectedEmoji,
       x: point.x, y: point.y, scale: 1, rotation: Math.random() * 30 - 15,
-    }, (res: any) => {
-      if (!res?.ok) {
-        setError(res?.error || 'วางไม่สำเร็จ');
+    };
+
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('place_item', payload, (res: any) => {
+        if (!res?.ok) {
+          setError(res?.error || 'วางไม่สำเร็จ');
+          setTimeout(() => setError(''), 2500);
+        }
+      });
+      return;
+    }
+
+    // REST fallback
+    (async () => {
+      try {
+        const res = await fetch('/api/place', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const j = await res.json();
+        if (j.ok) {
+          // อัปเดตสถานะการวางในฝั่ง client ทันที
+          setPlacements(p => [...p, j.placement]);
+        } else {
+          setError(j.error || 'วางผ่าน REST ไม่สำเร็จ');
+          setTimeout(() => setError(''), 2500);
+        }
+      } catch (e) {
+        setError(String(e) || 'วางล้มเหลว');
         setTimeout(() => setError(''), 2500);
       }
-    });
+    })();
   }, [action, code, kind, myAnswers, selectedEmoji, hasPlacedCurrent]);
 
   const kindEmoji = kind === 'leaf' ? '🍃' : kind === 'flower' ? '🌸' : '🍎';
@@ -229,9 +284,18 @@ function PlayInner() {
               ) : (
                 <span className="muted" style={{ fontSize: 13 }}>✏️ รอคำตอบของคุณ</span>
               )}
-              <button className="btn btn-primary" onClick={submitAnswer} disabled={!answerText.trim()}>
+              <button
+                className="btn btn-primary"
+                onClick={submitAnswer}
+                disabled={!answerText.trim() || !connected}
+              >
                 ส่งคำตอบ ✨
               </button>
+              {!connected && (
+                <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
+                  ⚠️ ยังไม่เชื่อมต่อกับเซิร์ฟเวอร์ — กรุณารีเฟรชหรือแจ้งผู้ดูแล
+                </div>
+              )}
             </div>
           </div>
         ) : (
